@@ -3,7 +3,7 @@ Adquisición de datos de sensores y envío de éstos a base de datos PostgreSQL
 
 # ARCHIVOS:
 DATA_ADQ.ino --> Código de ArduinoIDE que:
-                                - Recoge las lecturas de los sensores con un ESP32.
+                                \n-Recoge las lecturas de los sensores con un ESP32.
                                 - Las muestra a través del display LCD.
                                 - Las almacena en un CSV alojado en la memoria SD.
                                 - Las envía por MQTT utilizando un broker online.
