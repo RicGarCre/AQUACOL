@@ -1,14 +1,14 @@
 // ***** IPORTACIÓN DE LIBRERÍAS ***** //
 #include "Arduino.h"                  // Librería Arduino
 #include "WiFi.h"                     // Librería para comunicación WIFI
-#include "PubSubClient.h"             // Librería para comunicación MQTT
-#include "LiquidCrystal_I2C.h"        // Librería display LCD
+#include "PubSubClient.h"             // Librería para comunicación MQTT                   (nick.oleary)
+#include "LiquidCrystal_I2C.h"        // Librería display LCD                              (Frank Brabander)?
 #include "EEPROM.h"                   // Librería memoria EEPROM
-#include "OneWire.h"                  // Librería OneWire para los sensores DS18B20
-#include "DallasTemperature.h"        // Librería para lectura de sensores DS18B20
-#include "DFRobot_ESP_EC.h"           // Librería para lectura del sensor de conductividad
-#include "RTClib.h"                   // Librería del reloj RTC
-#include "DHT.h"                      // Librería para sensores ambientales DHT22
+#include "OneWire.h"                  // Librería OneWire para los sensores DS18B20        (Jim Studt)
+#include "DallasTemperature.h"        // Librería para lectura de sensores DS18B20         (Miles Burton)
+#include "DFRobot_ESP_EC.h"           // Librería para lectura del sensor de conductividad (Greenponik). La librería se llama: DFRobot_ESP_EC_BY_GREENPONIK
+#include "RTClib.h"                   // Librería del reloj RTC                            (Adafriit)
+#include "DHT.h"                      // Librería para sensores ambientales DHT22         (Adafriit). La librería se llama DTH sensor library de adatruit
 #include "FS.h"                       // Librería para gestión de ficheros
 #include "SD.h"                       // Libraría para gestión de memoria SD
 #include "SPI.h"                      // Librería para bus comunicación SPI
@@ -75,14 +75,14 @@ int flag_PH = 0;                      // Bandera que indica que la bomba del con
 
 char ssid[50];                        // Nombre de la red wifi
 char password[50];                    // Clave de la red wifi
-char cont = 0;                        // Contador para lectura de los parámetros del wifi
+uint8_t cont = 0;                     // Contador para lectura de los parámetros del wifi
 char lin = 0;                         // Bandera para lectura de los parámetros del wifi
 char caracter = 0;                    // Carácter leído de los parámetros del wifi
 int cont2 = 0;                        // Contador para el cálculo de valores medios
 
 const char* mqtt_server = "broker.emqx.io";   // Broker remoto MQTT ("broker.emqx.io")
 char msg[MSG_BUFFER_SIZE];                    // Búffer de envío de datos por MQTT
-char* ctrl_msg = "C";                         // Variable de control para MQTT
+char ctrl_msg[] = "C";                         // Variable de control para MQTT
 
 unsigned long prev_time1, prev_time2, prev_time3;   // Variables para almacenar instantes de tiempo anteriores
 unsigned long prev_time4, prev_time5, prev_time6;
@@ -397,7 +397,7 @@ void setup_devices(){
   ec.begin();                             // Inicializa sensor EC     
   dht_1.begin();                          // Inicializa sensor DHT22 número 1 
   dht_2.begin();                          // Inicializa sensor DHT22 número 2
-  lcd.begin();                            // Inicializa display LCD    
+  lcd.begin(20,4);                        // Inicializa display LCD    
   lcd.backlight();                        // Reset display LCD
   pinMode(ev_pin, OUTPUT);                // Establece el pin del canal 1 del relé como salida digital (electroválvula)
   pinMode(bomb_pin, OUTPUT);              // Establece el pin del canal 2 del relé como salida digital (bomba de agua)
