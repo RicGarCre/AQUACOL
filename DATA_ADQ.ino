@@ -84,6 +84,7 @@ const char* mqtt_server = "broker.emqx.io";   // Broker remoto MQTT ("broker.emq
 char msg[MSG_BUFFER_SIZE];                    // Búffer de envío de datos por MQTT
 char ctrl_msg[] = "C";                         // Variable de control para MQTT
 
+
 unsigned long prev_time1, prev_time2, prev_time3;   // Variables para almacenar instantes de tiempo anteriores
 unsigned long prev_time4, prev_time5, prev_time6;
 unsigned long prev_time7, prev_time8, prev_time9;
