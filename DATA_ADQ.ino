@@ -1,17 +1,17 @@
 // ***** IPORTACIÓN DE LIBRERÍAS ***** //
-#include "Arduino.h"                  // Librería Arduino
-#include "WiFi.h"                     // Librería para comunicación WIFI
-#include "PubSubClient.h"             // Librería para comunicación MQTT
-#include "LiquidCrystal_I2C.h"        // Librería display LCD
-#include "EEPROM.h"                   // Librería memoria EEPROM
-#include "OneWire.h"                  // Librería OneWire para los sensores DS18B20
-#include "DallasTemperature.h"        // Librería para lectura de sensores DS18B20
-#include "DFRobot_ESP_EC.h"           // Librería para lectura del sensor de conductividad
-#include "RTClib.h"                   // Librería del reloj RTC
-#include "DHT.h"                      // Librería para sensores ambientales DHT22
-#include "FS.h"                       // Librería para gestión de ficheros
-#include "SD.h"                       // Libraría para gestión de memoria SD
-#include "SPI.h"                      // Librería para bus comunicación SPI
+#include "Arduino.h"                  // Librería Arduino                                 [Arduino]
+#include "WiFi.h"                     // Librería para comunicación WIFI                  [Hristo Gochkov]
+#include "PubSubClient.h"             // Librería para comunicación MQTT                  [Nicholas O'Leary]
+#include "LiquidCrystal_I2C.h"        // Librería display LCD                             [Frank de Brabander]
+#include "EEPROM.h"                   // Librería memoria EEPROM                          [Ivan Grokhotkov]
+#include "OneWire.h"                  // Librería OneWire para los sensores DS18B20       [Paul Stoffregen]
+#include "DallasTemperature.h"        // Librería para lectura de sensores DS18B20        [Miles Burton]
+#include "DFRobot_ESP_EC.h"           // Librería para lectura sensor de conductividad    [Mickael Lehoux (Greenponik)]
+#include "RTClib.h"                   // Librería del reloj RTC                           [Adafruit]
+#include "DHT.h"                      // Librería para sensores ambientales DHT22         [Adafruit]
+#include "FS.h"                       // Librería para gestión de ficheros                [Hristo Gochkov, Ivan Grokhtkov]
+#include "SD.h"                       // Libraría para gestión de memoria SD              [Arduino, SparkFun]
+#include "SPI.h"                      // Librería para bus comunicación SPI               [Hristo Gochkov]
 
 // ***** DEFINICÓN DE CONSTANTES ***** //
 // Establecer pines
@@ -47,6 +47,7 @@
 #define MSG_BUFFER_SIZE	(100)         // Longitud máxima del búffer para envío de trama por MQTT
 #define Ph_ref 8.5                    // Referencia para el control de ph
 
+           
 // ***** GENERACIÓN DE OBJETOS ***** //
 WiFiClient espClient;                 // Objeto de cliente wifi
 PubSubClient client(espClient);       // Publicador subscriptor MQTT
@@ -73,16 +74,18 @@ int level_sup, level_inf;             // Estado de sensores float switch
 int flag_LCD = 0;                     // Bandera para alternar la impresión de los datos en el LCD
 int flag_PH = 0;                      // Bandera que indica que la bomba del control de pH está activa
 
+
 char ssid[50];                        // Nombre de la red wifi
 char password[50];                    // Clave de la red wifi
-char cont = 0;                        // Contador para lectura de los parámetros del wifi
+uint8_t cont = 0;                     // Contador para lectura de los parámetros del wifi
 char lin = 0;                         // Bandera para lectura de los parámetros del wifi
 char caracter = 0;                    // Carácter leído de los parámetros del wifi
 int cont2 = 0;                        // Contador para el cálculo de valores medios
 
-const char* mqtt_server = "broker.emqx.io";   // Broker remoto MQTT ("broker.emqx.io")
-char msg[MSG_BUFFER_SIZE];                    // Búffer de envío de datos por MQTT
-char* ctrl_msg = "C";                         // Variable de control para MQTT
+
+const char* mqtt_server = "broker.emqx.io";     // Broker remoto MQTT ("broker.emqx.io")
+char msg[MSG_BUFFER_SIZE];                      // Búffer de envío de datos por MQTT
+char ctrl_msg[] = "C";                          // Variable de control para MQTT
 
 unsigned long prev_time1, prev_time2, prev_time3;   // Variables para almacenar instantes de tiempo anteriores
 unsigned long prev_time4, prev_time5, prev_time6;
@@ -513,7 +516,7 @@ void setup(){
   setup_wifi();               // Configuración de la conexión wifi  
   setup_mqtt();               // Configuración de la conexión MQTT 
   
-  //Get_Sensors();              // Primera adquisición de datos de sensores
+  //Get_Sensors();            // Primera adquisición de datos de sensores
 }
 ////////////////////////
 //// Bucle infinito ////
