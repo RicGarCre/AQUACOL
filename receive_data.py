@@ -6,11 +6,19 @@ import psycopg2                 # Librería de gestión de bases de datos Postgr
 
 ########################################
 # Credenciales de la base de datos
+
 data_base = "vkpgnbux"                          # Nombre de la base de datos
 user = "vkpgnbux"                               # Usuario
 password = "rkrbRKe9yjudkRFA3dOU_t9ZGF2qd_mm"   # Contraseña
 host = "rogue.db.elephantsql.com"               # Dirección del host
 table_name = "aquacol_data"                     # Tabla para almacenar los datos de AQUACOL
+"""
+data_base = "prueba_db"                         # Nombre de la base de datos
+user = "postgres"                               # Usuario
+password = "rootsql"                            # Contraseña
+host = "localhost"                              # Dirección del host
+table_name = "ft_inst1_data"                    # Tabla para almacenar los datos de AQUACOL
+"""
 
 ########################################
 # Datos para la conexión MQTT
@@ -119,8 +127,13 @@ def Thread_DB():
     
     # Función para insertar datos en la tabla
     def Insert_data():                                      # Generar consulta SQL (insertar datos en tabla)
+        
         sql = "INSERT INTO " + table_name + "(TIMESTAMP, T1, T2, PH, O2, EC, Ta1, Ha1, Ta2, Ha2, Level_sup, Level_inf)\
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        """
+        sql = "INSERT INTO " + table_name + "(ft_ins1_timestamp, ft_ins1_t1, ft_ins1_t2, ft_ins1_ph, ft_ins1_o2, ft_ins1_ec, ft_ins1_ta1, ft_ins1_ha1, ft_ins1_ta2, ft_ins1_ha2)\
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        """
         cursor.execute(sql, data)                           # Ejecutar consulta SQL
         conexion.commit()
 
