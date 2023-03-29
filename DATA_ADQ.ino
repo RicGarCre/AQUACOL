@@ -39,7 +39,7 @@
 #define T_MQTT_ctrl 300000            // Periodo de envío del byte de control para mantener la comunicación MQTT
 #define T_adq 5000                    // Periodo de lectura de sensores
 #define T_show 2500                   // Periodo de actualización del LCD
-#define T_send 1800000                 // Periodo de almacenamiento de datos en la SD y envío MQTT
+#define T_send 1800000                // Periodo de almacenamiento de datos en la SD y envío MQTT
 #define T_level_ctrl 1000             // Periodo de ejecución del control de nivel
 #define T_ph_ctrl 60000               // Periodo de ejecución del control de Ph
 #define T_1hour 3600000               // Periodo para comprobar el nivel de pH (control de pH) --> 1 hora
@@ -72,7 +72,6 @@ float Temp2;                          // Temperatura agua 2     (DS18B20 2)
 float pH;                             // Valor de pH
 float ecc;                            // Valor de conductividad eléctrica 
 float o2;                             // Valor de oxígeno disuelto
-float o2_voltage;
 int level_sup, level_inf;             // Estado de sensores float switch
 int flag_LCD = 0;                     // Bandera para alternar la impresión de los datos en el LCD
 int flag_PH = 0;                      // Bandera que indica que la bomba del control de pH está activa
@@ -91,6 +90,7 @@ char caracter = 0;                    // Carácter leído de los parámetros del
 int cont2 = 0;                        // Contador para el cálculo de valores medios
 
 const char* mqtt_server = "broker.emqx.io";     // Broker remoto MQTT ("broker.emqx.io")
+//const char* mqtt_server = "192.168.0.100";     // Broker remoto MQTT ("broker.emqx.io")
 char msg[MSG_BUFFER_SIZE];                      // Búffer de envío de datos por MQTT
 char ctrl_msg[] = "C";                          // Variable de control para MQTT
 
@@ -168,6 +168,7 @@ void writeFile(fs::FS &fs, const char * path, String message){
   else{
     Serial.println("Fallo al escribir en archivo");       // Fallo en escritura de datos
   }
+  file.close();
 }
 ///////////////////////////////////////
 //// Añadir datos en archivo de SD ////
@@ -186,6 +187,7 @@ void appendFile(fs::FS &fs, const char * path, String message){
   else{
     Serial.println("Append failed");                        // Fallo añadiendo datos
   }
+  file.close();
 }
 //////////////////////////
 //// Obtención del pH ////
@@ -247,9 +249,9 @@ float Get_o2_value(){
     V_saturation = (float)((Temp1 - CAL2_T) * (CAL1_V - CAL2_V) / (CAL1_T - CAL2_T) + CAL2_V);
   }
 
-  float o2_voltage = (float)(analogRead(o2_pin)*VREF/RESOL);                      // Lectura voltaje salida del ADC (mV)
-  //float o2_raw = analogRead(o2_pin);
-  //o2_voltage = esp_adc_cal_raw_to_voltage(o2_raw, &adc_chars)/1000.0;
+  //float o2_voltage = (float)(analogRead(o2_pin)*VREF/RESOL);                      // Lectura voltaje salida del ADC (mV)
+  float o2_raw = analogRead(o2_pin);
+  float o2_voltage = esp_adc_cal_raw_to_voltage(o2_raw, &adc_chars);              // Obtener la tensión en mV que ofrece el ADC calibrado
   float o2_value = (float)(o2_voltage * (DO_Table[(int)Temp1]) / V_saturation);   // Cálculo del oxígeno disuelto
   o2_value = o2_value / 1000.0;                                                   // Pasar de mg/L
   return o2_value;                                                                // Devuelve el valor calculado de oxígeno disuelto
@@ -261,6 +263,7 @@ void Get_Sensors(){
   float aux;
   cont2++;
   // Filtrar lecturas para eliminar errores
+  
   aux = dht_1.readTemperature();
   if(aux >= -20 && aux <= 60){
     Ta1 = aux;
@@ -292,6 +295,21 @@ void Get_Sensors(){
   level_sup = digitalRead(float_sup_pin);   // Lectura del sensor float switch superior
   level_inf = digitalRead(float_inf_pin);   // Lectura del sensor float switch inferior
 
+  /*
+  // Simulación de medidas
+  Temp1 = random(10,30);
+  Temp2 = random(10,30);
+  pH = random(1,14);
+  o2 = random(5,20);
+  ecc = random(20,300);
+  Ta1 = random(10,30);
+  Ha1 = random(0,100);
+  Ta2 = random(10,30);
+  Ha2 = random(0,100);
+  level_sup = 1;
+  level_inf = 1;
+  */
+
   Avg[0] += Temp1;
   Avg[1] += Temp2;
   Avg[2] += pH;
@@ -302,12 +320,15 @@ void Get_Sensors(){
   Avg[7] += Ta2;
   Avg[8] += Ha2;
 
+  /*
   Serial.print("o2_v: ");
   Serial.println(o2_voltage);
   Serial.print("T: ");
   Serial.println(Temp2);
   Serial.print("pH: ");
   Serial.println(pH);
+  */
+  
   
 }
 ////////////////////////////////////////////////////////
@@ -317,6 +338,7 @@ void Get_Average(){
 
   DateTime time = rtc.now();              // Obtiene el instante actual en formate DateTime
   timestamp = time.unixtime();            // Convierte el dato anterior a tiempo epoch (segundos transcurridos desde el 01/01/1970)
+  //timestamp = timestamp + 600;                 // Simulación timestamp
 
   for(int i = 0; i < 9; i++){
     Avg[i] = Avg[i] / ((float)cont2);
@@ -428,9 +450,10 @@ void setup_devices(){
   pinMode(float_sup_pin, INPUT_PULLUP);   // Establece el pin del sensor float switch 1 como entrada digital
   pinMode(float_inf_pin, INPUT_PULLUP);   // Establece el pin del sensor float switch 2 como entrada digital 
   esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 0, &adc_chars);   // Calibración del ADC 
+
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Config devices...");
-  delay(1000);
+  delay(2000);
 
  }
 /////////////////////////////////////////////////
@@ -439,7 +462,7 @@ void setup_devices(){
 void setup_wifi(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Configurando WIFI...");
-  delay(1000);
+  delay(2000);
   readFile(SD, "/conf_wifi.txt");                         // Leer archivo de configuración del wifi para obtener nombre y clave
   if(ssid != 0 && password != 0){                         // Si se obtiene nombre y clave del wifi:
     Serial.print("Conectando con: ");
@@ -451,14 +474,14 @@ void setup_wifi(){
       if (millis() - prev_time6 > wifi_conn_lim){          // Conteo de tiempo. Si supera el tiempo límite: conexión no establecida
         lcd.setCursor(0,1); lcd.print(">>> Tiempo superado");
         lcd.setCursor(0,2); lcd.print(">>> WIFI ERROR");
-        delay(1000);
+        delay(2000);
         Serial.println("Tiempo superado");
         Serial.println("Conexión WiFi no establecida");
         return;                                           // Salir de la función setup_wifi
       }
     }
     lcd.setCursor(0,1); lcd.print(">>> WIFI OK");
-    delay(1000);
+    delay(2000);
     randomSeed(micros());                                 // Conexión wifi establecida correctamente
     Serial.println("");
     Serial.print("Conexion WiFi establecida con: ");
@@ -469,7 +492,7 @@ void setup_wifi(){
   else{                                                             // Si no se obtiene nombre y clave del wifi:
     lcd.setCursor(0,1); lcd.print(">>> Config error");
     lcd.setCursor(0,2); lcd.print(">>> WIFI ERROR");
-    delay(1000);
+    delay(2000);
     Serial.println("ERROR: Introducir nombre y clave WiFi en SD");  // Conexión no establecida
     Serial.println("Conexión WiFi no establecida");
   }
@@ -480,17 +503,17 @@ void setup_wifi(){
 void setup_sd(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Config SD...");
-  delay(1000);
+  delay(2000);
   if(SD.begin()){    //SD.begin(25)                                                     // Una vez inicializada, incluir nombres de sensores en CSV
     //String header = "TimeStamp; Oxigeno; pH; EC; Temp1; Temp2; Ta1; Ha1; Ta2; Ha2";
     //writeFile(SD, "/data_sensors.csv", header);
     lcd.setCursor(0,1); lcd.print(">>> SD OK");
-    delay(1000);
+    delay(2000);
     Serial.println("SD configurada correctamente");
   }
   else{
     lcd.setCursor(0,1); lcd.print(">>> SD ERROR");
-    delay(1000);
+    delay(2000);
     Serial.println("ERROR: SD no detectada");
   }   
 }
@@ -500,7 +523,7 @@ void setup_sd(){
 void setup_mqtt(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Config MQTT...");
-  delay(1000);
+  delay(2000);
 
   client.setServer(mqtt_server, 1883);                                  // Establecer broker y puerto MQTT
   Serial.println("Conectando con servidor MQTT...");
@@ -514,14 +537,14 @@ void setup_mqtt(){
     if(millis() - prev_time7 > mqtt_conn_lim){                          // Conteo de tiempo
       lcd.setCursor(0,1); lcd.print(">>> Tiempo superado");
       lcd.setCursor(0,2); lcd.print(">>> MQTT ERROR");
-      delay(1000);
+      delay(2000);
       Serial.println("Tiempo superado. Conexion MQTT no establecida");  // Tiempo superado. Conexión MQTT no establecida
       return;                                                           // Salir de setup_mqtt
     }
   }
   client.loop();                                                        // Conexión MQTT establecida correctamente
   lcd.setCursor(0,1); lcd.print(">>> MQTT OK");
-  delay(1000);
+  delay(2000);
   Serial.println("Conexion MQTT establecida");
 }
 /////////////////////////////////////////////////
@@ -557,6 +580,7 @@ void setup(){
 ////////////////////////
 void loop(){
   // Adquisición de medidas de los sensores
+  
   if(millis() - prev_time1 > T_adq){
     prev_time1 = millis();
     Get_Sensors();            
@@ -573,12 +597,20 @@ void loop(){
     prev_time3 = millis();
     Get_Average();
     Write_SD();
+
+    if(WiFi.status() != WL_CONNECTED){
+      setup_wifi();
+    }
+    if(!client.connected()){
+      setup_mqtt();
+    }
     Send_MQTT();
+      
     for(int i=0; i<9; i++){
       Avg[i] = 0;
     }
   }
-  /*
+  
   // Automatismo para el control de nivel de agua
   if(millis() - prev_time4 > T_level_ctrl){
     prev_time4 = millis();
@@ -589,11 +621,11 @@ void loop(){
     prev_time5 = millis();
     Ph_Control();
   }
-  */
   // Envío de byte de control por MQTT para mantener la conexión
   if(millis() - prev_time10 > T_MQTT_ctrl){
     prev_time10 = millis();
     client.publish("aquacol", ctrl_msg); 
     Serial.println("control msg");
   }
+  
 }
