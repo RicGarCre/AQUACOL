@@ -29,7 +29,7 @@
 // Parámetros del ADC y calibración
 #define RESOL 4095                    // Resolución ADC ESP32 (12 bits)
 #define VREF 3300                     // Tensión de trabajo del ADC ESP32 (3.3V)
-#define MODE_CALIBRATION_O2 0         // MODE_CALIBRATION_O2 = 0 --> Calibracion O2 a un punto / MODE_CALIBRATION = 1 --> Calibracion O2 a dos puntos
+#define MODE_CALIBRATION_O2 1         // MODE_CALIBRATION_O2 = 0 --> Calibracion O2 a un punto / MODE_CALIBRATION = 1 --> Calibracion O2 a dos puntos
 #define CAL1_V (800)                  // Tensión de calibración primer punto en mV (O2) 
 #define CAL1_T (15.75)                // Temperatura de calibración primer punto en ºC (O2) [HIGH TEMPERATURE]
 #define CAL2_V (630)                  // Tensión de calibración segundo punto en mV (O2)
@@ -39,7 +39,7 @@
 #define T_MQTT_ctrl 300000            // Periodo de envío del byte de control para mantener la comunicación MQTT
 #define T_adq 2500                    // Periodo de lectura de sensores
 #define T_show 5000                   // Periodo de actualización del LCD
-#define T_send  1800000               // Periodo de almacenamiento de datos en la SD y envío MQTT
+#define T_send 1800000                // Periodo de almacenamiento de datos en la SD y envío MQTT
 #define T_level_ctrl 1000             // Periodo de ejecución del control de nivel
 #define T_ph_ctrl 60000               // Periodo de ejecución del control de Ph
 #define T_1hour 3600000               // Periodo para comprobar el nivel de pH (control de pH) --> 1 hora
@@ -48,8 +48,7 @@
 #define wifi_conn_lim 15000           // Límite de tiempo de espera para la conexión WiFi
 #define MSG_BUFFER_SIZE	100           // Longitud máxima del búffer para envío de trama por MQTT
 #define Ph_ref 8.5                    // Referencia para el control de ph
-
-           
+ 
 // ***** GENERACIÓN DE OBJETOS ***** //
 WiFiClient espClient;                 // Objeto de cliente wifi
 PubSubClient client(espClient);       // Publicador subscriptor MQTT
@@ -62,7 +61,7 @@ OneWire ourWire(onewire_pin);         // Objeto OneWire. Bus OneWire en pin 16
 DallasTemperature DS18B20(&ourWire);  // Objeto para sensores de temperatura DS18B20 en bus OneWire
 
 // ***** DEFINICIÓN DE VARIABLES GLOBALES ***** //
-unsigned long timestamp = 1683664197;              // Variable de instante de adquisición de datos de sensores para su almacenamiento
+unsigned long timestamp;              // Variable de instante de adquisición de datos de sensores para su almacenamiento
 float Ta1;                            // Temperatura ambiente 1 (DHT22 1)
 float Ha1;                            // Humedad ambiente 1     (DHT22 1)
 float Ta2;                            // Temperatura ambiente 2 (DHT22 2)
@@ -75,17 +74,12 @@ float o2;                             // Valor de oxígeno disuelto
 int level_sup, level_inf;             // Estado de sensores float switch
 int flag_LCD = 0;                     // Bandera para alternar la impresión de los datos en el LCD
 int flag_PH = 0;                      // Bandera que indica que la bomba del control de pH está activa
+int a = 0;                            // Bandera para indicar si ya se leyeron los credenciales del WiFi de la SD
 
-
-//char ssid[50];                        // Nombre de la red wifi
-//char password[50];                    // Clave de la red wifi
-//char ssid[] = "OPPO A17";
-//char password[] = "oppitoricardito";
-//char ssid[] = "sagemcomD2E8";
-//char password[] = "changaobogafa11500";
-char ssid[] = "TP-Link_AE0C";
-char password[] = "48586818";
-
+char ssid[50];                        // Nombre de la red wifi
+char password[50];                    // Clave de la red wifi
+//char ssid[] = "TP-Link_AE0C";
+//char password[] = "48586818";
 
 uint8_t cont = 0;                     // Contador para lectura de los parámetros del wifi
 char lin = 0;                         // Bandera para lectura de los parámetros del wifi
@@ -103,9 +97,7 @@ unsigned long prev_time7, prev_time8, prev_time9;
 unsigned long prev_time10;
 
 esp_adc_cal_characteristics_t adc_chars;        // Variable para almacenar las carcaterísticas del ADC
-
 float Avg[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};     // Array de valores medios de lectura de sensores
-
 
 // ***** DEFINICIÓN DE FUNCIONES ***** //
 
@@ -126,14 +118,11 @@ void Send_MQTT(){
 void readFile(fs::FS &fs, const char * path){
     
   Serial.printf("Reading file: %s\n", path);
-
   File file = fs.open(path);
   if(!file){
     Serial.println("Failed to open file for reading");
     return;
   }
-  Serial.print("Read from file: \n");
-
   while(file.available()){
     caracter = (char)file.read();
     if(caracter == '/'){ 
@@ -265,39 +254,37 @@ void Get_Sensors(){
   float aux;
   cont2++;
   // Filtrar lecturas para eliminar errores
-  /*
   aux = dht_1.readTemperature();
-  if(aux >= -20 && aux <= 60){
-    Ta1 = aux;
-  }
+  if(aux >= -20 && aux <= 60) {Ta1 = aux;}
   aux = dht_1.readHumidity();
-  if(aux >= 0 && aux <= 100){
-    Ha1 = aux;
-  }
+  if(aux >= 0 && aux <= 100) {Ha1 = aux;}
   aux = dht_2.readTemperature();
-  if(aux >= -20.0 && aux <= 60.0){
-    Ta2 = aux;
-  }
+  if(aux >= -20.0 && aux <= 60.0) {Ta2 = aux;}
   aux = dht_2.readHumidity();
-  if(aux >= 0 && aux <= 100){
-    Ha2 = aux;
-  }
+  if(aux >= 0 && aux <= 100) {Ha2 = aux;}
   DS18B20.requestTemperatures();
   aux = DS18B20.getTempCByIndex(0);
-  if(aux != -127.0){
-    Temp1 = aux;
-  }
+  if(aux != -127.0) {Temp1 = aux;}
   aux = DS18B20.getTempCByIndex(1);
-  if(aux != -127.0){
-    Temp2 = aux;
-  }
+  if(aux != -127.0) {Temp2 = aux;}
+
   pH = Get_pH_value();                      // Lectura del pH
   ecc = Get_ec_value();                     // Lectura de la conductividad eléctrica
   o2 = Get_o2_value();                      // Lectura del oxígeno disuelto
   level_sup = digitalRead(float_sup_pin);   // Lectura del sensor float switch superior
   level_inf = digitalRead(float_inf_pin);   // Lectura del sensor float switch inferior
-  */
   
+  Avg[0] += Temp1;
+  Avg[1] += Temp2;
+  Avg[2] += pH;
+  Avg[3] += o2;
+  Avg[4] += ecc;
+  Avg[5] += Ta1;
+  Avg[6] += Ha1;
+  Avg[7] += Ta2;
+  Avg[8] += Ha2;
+  
+  /*
   // Simulación de medidas
   Temp1 = random(10,30);
   Temp2 = random(10,30);
@@ -310,27 +297,16 @@ void Get_Sensors(){
   Ha2 = random(0,100);
   level_sup = 1;
   level_inf = 1;
-  
-
-  Avg[0] += Temp1;
-  Avg[1] += Temp2;
-  Avg[2] += pH;
-  Avg[3] += o2;
-  Avg[4] += ecc;
-  Avg[5] += Ta1;
-  Avg[6] += Ha1;
-  Avg[7] += Ta2;
-  Avg[8] += Ha2;
-  
+  */ 
 }
 ////////////////////////////////////////////////////////
 //// Calcula el valor medio de las ultimas lecturas ////
 ////////////////////////////////////////////////////////
 void Get_Average(){
 
-  //DateTime time = rtc.now();              // Obtiene el instante actual en formate DateTime
-  //timestamp = time.unixtime();            // Convierte el dato anterior a tiempo epoch (segundos transcurridos desde el 01/01/1970)
-  timestamp = timestamp + 1800;            // Simulación timestamp
+  DateTime time = rtc.now();              // Obtiene el instante actual en formate DateTime
+  timestamp = time.unixtime();            // Convierte el dato anterior a tiempo epoch (segundos transcurridos desde el 01/01/1970)
+  Serial.println(timestamp);
 
   for(int i = 0; i < 9; i++){
     Avg[i] = Avg[i] / ((float)cont2);
@@ -425,27 +401,26 @@ void Ph_Control(){
 //// Configuración e inicialización de dispositivos ////
 ////////////////////////////////////////////////////////
 void setup_devices(){
-
-  DS18B20.begin();                        // Inicializa sensores de temperatura DS18B20    
-  EEPROM.begin(32);                       // Inicializa memoria EEPROM   
-  rtc.begin();                            // Inicializa el reloj RTC
-  ec.begin();                             // Inicializa sensor EC     
-  dht_1.begin();                          // Inicializa sensor DHT22 número 1 
-  dht_2.begin();                          // Inicializa sensor DHT22 número 2
-  lcd.begin();                            // Inicializa display LCD    
-  lcd.backlight();                        // Reset display LCD
-  pinMode(ev_pin, OUTPUT);                // Establece el pin del canal 1 del relé como salida digital (electroválvula)
-  pinMode(bomb_pin, OUTPUT);              // Establece el pin del canal 2 del relé como salida digital (bomba de agua)
-  digitalWrite(ev_pin, HIGH);             // Inicialmente electroválvula apagada
-  digitalWrite(bomb_pin, HIGH);           // Inicialmente bomba apagada
-  pinMode(float_sup_pin, INPUT_PULLUP);   // Establece el pin del sensor float switch 1 como entrada digital
-  pinMode(float_inf_pin, INPUT_PULLUP);   // Establece el pin del sensor float switch 2 como entrada digital 
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 0, &adc_chars);   // Calibración del ADC 
+  DS18B20.begin();                                  // Inicializa sensores de temperatura DS18B20    
+  EEPROM.begin(32);                                 // Inicializa memoria EEPROM   
+  rtc.begin();                                      // Inicializa el reloj RTC
+  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));   // Ajustar fecha y hora del RTC
+  ec.begin();                                       // Inicializa sensor EC     
+  dht_1.begin();                                    // Inicializa sensor DHT22 número 1 
+  dht_2.begin();                                    // Inicializa sensor DHT22 número 2
+  lcd.begin();                                      // Inicializa display LCD    
+  lcd.backlight();                                  // Reset display LCD
+  pinMode(ev_pin, OUTPUT);                          // Establece el pin del canal 1 del relé como salida digital (electroválvula)
+  pinMode(bomb_pin, OUTPUT);                        // Establece el pin del canal 2 del relé como salida digital (bomba de agua)
+  digitalWrite(ev_pin, HIGH);                       // Inicialmente electroválvula apagada
+  digitalWrite(bomb_pin, HIGH);                     // Inicialmente bomba apagada
+  pinMode(float_sup_pin, INPUT_PULLUP);             // Establece el pin del sensor float switch 1 como entrada digital
+  pinMode(float_inf_pin, INPUT_PULLUP);             // Establece el pin del sensor float switch 2 como entrada digital 
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 0, &adc_chars);   // Calibración del ADC
 
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Config devices...");
   delay(2000);
-
  }
 /////////////////////////////////////////////////
 //// Configuración e inicialización del WIFI ////
@@ -454,33 +429,36 @@ void setup_wifi(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Configurando WIFI...");
   delay(2000);
-  readFile(SD, "/conf_wifi.txt");                         // Leer archivo de configuración del wifi para obtener nombre y clave
-  if(ssid != 0 && password != 0){                         // Si se obtiene nombre y clave del wifi:
+  if(a == 0){
+    readFile(SD, "/conf_wifi.txt");                         // Leer archivo de configuración del wifi para obtener nombre y clave
+    a = 1;
+  }
+  if(ssid != 0 && password != 0){                           // Si se obtiene nombre y clave del wifi:
     Serial.print("Conectando con: ");
     Serial.println(ssid);
-    WiFi.mode(WIFI_STA);                                  // Configurar el modo de la conexión
-    WiFi.begin(ssid, password);                           // Iniciar la conexión
+    WiFi.mode(WIFI_STA);                                    // Configurar el modo de la conexión
+    WiFi.begin(ssid, password);                             // Iniciar la conexión
     prev_time6 = millis();
-    while (WiFi.status() != WL_CONNECTED){                // Mientras no se establezca la conexión:
-      if (millis() - prev_time6 > wifi_conn_lim){          // Conteo de tiempo. Si supera el tiempo límite: conexión no establecida
+    while (WiFi.status() != WL_CONNECTED){                  // Mientras no se establezca la conexión:
+      if (millis() - prev_time6 > wifi_conn_lim){           // Conteo de tiempo. Si supera el tiempo límite: conexión no establecida
         lcd.setCursor(0,1); lcd.print(">>> Tiempo superado");
         lcd.setCursor(0,2); lcd.print(">>> WIFI ERROR");
         delay(2000);
         Serial.println("Tiempo superado");
         Serial.println("Conexión WiFi no establecida");
-        return;                                           // Salir de la función setup_wifi
+        return;                                             // Salir de la función setup_wifi
       }
     }
     lcd.setCursor(0,1); lcd.print(">>> WIFI OK");
     delay(2000);
-    randomSeed(micros());                                 // Conexión wifi establecida correctamente
+    randomSeed(micros());                                   // Conexión wifi establecida correctamente
     Serial.println("");
     Serial.print("Conexion WiFi establecida con: ");
     Serial.println(ssid);
     Serial.println("Dirección IP: ");
-    Serial.println(WiFi.localIP());                       // Mostrar dirección IP asignada al ESP32
+    Serial.println(WiFi.localIP());                         // Mostrar dirección IP asignada al ESP32
   }
-  else{                                                             // Si no se obtiene nombre y clave del wifi:
+  else{                                                     // Si no se obtiene nombre y clave del wifi:
     lcd.setCursor(0,1); lcd.print(">>> Config error");
     lcd.setCursor(0,2); lcd.print(">>> WIFI ERROR");
     delay(2000);
@@ -495,9 +473,9 @@ void setup_sd(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Config SD...");
   delay(2000);
-  if(SD.begin()){    //SD.begin(25)                                                     // Una vez inicializada, incluir nombres de sensores en CSV
-    if(!SD.exists("data_sensors.csv")){
-      String header = "TimeStamp; Oxigeno; pH; EC; Temp1; Temp2; Ta1; Ha1; Ta2; Ha2; Level_Sup; Level_Inf";
+  if(SD.begin(2)){                                                         // Una vez inicializada, incluir nombres de sensores en CSV
+    if(!SD.exists("/data_sensors.csv")){
+      String header = "TimeStamp; Temp1; Temp2; pH; Oxigeno; EC; Ta1; Ha1; Ta2; Ha2; Level_Sup; Level_Inf";
       writeFile(SD, "/data_sensors.csv", header);
     }
     lcd.setCursor(0,1); lcd.print(">>> SD OK");
@@ -544,6 +522,7 @@ void setup_mqtt(){
 //// Iniciar instantes de tiempos anteriores ////
 /////////////////////////////////////////////////
 void init_times(){
+
   prev_time1 = millis();    // Todas la variables de tiempo anterior se inicializan con el tiempo actual    
   prev_time2 = millis();
   prev_time3 = millis();
@@ -570,17 +549,13 @@ void setup(){
 //// Bucle infinito ////
 ////////////////////////
 void loop(){
-  // Adquisición de medidas de los sensores
+
+  // Adquisición de datos de sensores
   if(millis() - prev_time1 > T_adq){
     prev_time1 = millis();
     Get_Sensors();
-
-    Serial.print("Connected:");
-    Serial.println(client.connected());
-    Serial.print("State:");
-    Serial.println(client.state());         
   }
-  // Mostrar medidas por el LCD
+  // Visualizar medidas a través del display LCD
   if(millis() - prev_time2 > T_show){
     prev_time2 = millis();
     Show_LCD(); 
@@ -590,23 +565,26 @@ void loop(){
     prev_time3 = millis();
     Get_Average();
     Write_SD();
-    
-    if(WiFi.status() != WL_CONNECTED){    // Si se pierde la conexión WiFi:
-      setup_wifi();                       // Configurar WiFi
-    }
-    if(!client.connected()){              // Si se pierde la conexión MQTT:
-      setup_mqtt();                       // Configurar MQTT
-    }
 
+    Serial.println(WiFi.status());
+    if(WiFi.status() != WL_CONNECTED){
+      setup_wifi();
+    }
+    setup_mqtt();
     Send_MQTT();                          // Envío de datos por MQTT
-      
+ 
     for(int i=0; i<9; i++){               // Poner a cero el array de valores medios
       Avg[i] = 0;
     }
   }
-  
-  // Automatismo para el control de nivel de agua
+  // Envío de byte de control por MQTT para mantener la conexión
+  if(millis() - prev_time10 > T_MQTT_ctrl){
+    prev_time10 = millis();
+    client.publish("aquacol", ctrl_msg); 
+    Serial.println("control msg");
+  }
   /*
+  // Automatismo para el control de nivel de agua
   if(millis() - prev_time4 > T_level_ctrl){
     prev_time4 = millis();
     Level_Control();
@@ -616,11 +594,5 @@ void loop(){
     prev_time5 = millis();
     Ph_Control();
   }
-  */
-  // Envío de byte de control por MQTT para mantener la conexión
-  if(millis() - prev_time10 > T_MQTT_ctrl){
-    prev_time10 = millis();
-    client.publish("aquacol", ctrl_msg); 
-    Serial.println("control msg");
-  }
+  */ 
 }
