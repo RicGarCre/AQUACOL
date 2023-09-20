@@ -9,7 +9,7 @@ DATA_ADQ.ino --> Código de ArduinoIDE que:
                                 - Las envía por MQTT utilizando un broker online.
                                 - Controla el nivel de agua de un depósito.
                                 
-data_receive.py --> Código Python que:
+receive_data.py --> Código Python que:
                                 - Recibe las lecturas de los sensores por MQTT.
                                 - Las inserta en una tabla de una base de datos PostgreSQL.
                                 

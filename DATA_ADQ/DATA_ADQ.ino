@@ -61,43 +61,40 @@ OneWire ourWire(onewire_pin);         // Objeto OneWire. Bus OneWire en pin 16
 DallasTemperature DS18B20(&ourWire);  // Objeto para sensores de temperatura DS18B20 en bus OneWire
 
 // ***** DEFINICIÓN DE VARIABLES GLOBALES ***** //
-unsigned long timestamp;              // Variable de instante de adquisición de datos de sensores para su almacenamiento
-float Ta1;                            // Temperatura ambiente 1 (DHT22 1)
-float Ha1;                            // Humedad ambiente 1     (DHT22 1)
-float Ta2;                            // Temperatura ambiente 2 (DHT22 2)
-float Ha2;                            // Humedad ambiente 2     (DHT22 2)
-float Temp1;                          // Temperatura agua 1     (DS18B20 1)
-float Temp2;                          // Temperatura agua 2     (DS18B20 2)
-float pH;                             // Valor de pH
-float ecc;                            // Valor de conductividad eléctrica 
-float o2;                             // Valor de oxígeno disuelto
-int level_sup, level_inf;             // Estado de sensores float switch
-int flag_LCD = 0;                     // Bandera para alternar la impresión de los datos en el LCD
-int flag_PH = 0;                      // Bandera que indica que la bomba del control de pH está activa
-int a = 0;                            // Bandera para indicar si ya se leyeron los credenciales del WiFi de la SD
-
-char ssid[50];                        // Nombre de la red wifi
-char password[50];                    // Clave de la red wifi
-//char ssid[] = "TP-Link_AE0C";
-//char password[] = "48586818";
-
-uint8_t cont = 0;                     // Contador para lectura de los parámetros del wifi
-char lin = 0;                         // Bandera para lectura de los parámetros del wifi
-char caracter = 0;                    // Carácter leído de los parámetros del wifi
-int cont2 = 0;                        // Contador para el cálculo de valores medios
-
-//const char* mqtt_server = "broker.emqx.io";     // Broker remoto MQTT ("broker.emqx.io")
-const char* mqtt_server = "192.168.1.105";     // Broker remoto MQTT ("broker.emqx.io")
-char msg[MSG_BUFFER_SIZE];                      // Búffer de envío de datos por MQTT
-char ctrl_msg[] = "C";                          // Variable de control para MQTT
-
+unsigned long timestamp;                            // Marca de tiempo para la adquisición de datos de sensores (almacenamiento en BD y SD)
 unsigned long prev_time1, prev_time2, prev_time3;   // Variables para almacenar instantes de tiempo anteriores
 unsigned long prev_time4, prev_time5, prev_time6;
 unsigned long prev_time7, prev_time8, prev_time9;
 unsigned long prev_time10;
+float Ta1;                    // Temperatura ambiente 1 (DHT22 1)
+float Ha1;                    // Humedad ambiente 1     (DHT22 1)
+float Ta2;                    // Temperatura ambiente 2 (DHT22 2)
+float Ha2;                    // Humedad ambiente 2     (DHT22 2)
+float Temp1;                  // Temperatura agua 1     (DS18B20 1)
+float Temp2;                  // Temperatura agua 2     (DS18B20 2)
+float pH;                     // Valor de pH
+float ecc;                    // Valor de conductividad eléctrica 
+float o2;                     // Valor de oxígeno disuelto
+int level_sup, level_inf;     // Estado de sensores float switch
+int flag_LCD = 0;             // Bandera para alternar la impresión de los datos en el LCD
+int flag_PH = 0;              // Bandera que indica que la bomba del control de pH está activa
+int cont2 = 0;                // Contador para el cálculo de valores medios
 
-esp_adc_cal_characteristics_t adc_chars;        // Variable para almacenar las carcaterísticas del ADC
-float Avg[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};     // Array de valores medios de lectura de sensores
+char ssid[50];                // Nombre de la red wifi
+char password[50];            // Clave de la red wifi
+char lin = 0;                 // Bandera para lectura de los parámetros del wifi
+char caracter = 0;            // Carácter leído de los parámetros del wifi
+uint8_t cont = 0;             // Contador para lectura de los parámetros del wifi
+int a = 0;                    // Bandera para indicar si ya se leyeron los credenciales del WiFi de la SD
+
+const char* mqtt_server = "192.168.1.105";          // Dirección IP del broker local (Raspberry Pi)
+//const char* mqtt_server = "broker.emqx.io";       // Broker remoto MQTT ("broker.emqx.io")
+//const char* mqtt_server = "test.mosquitto.org";   // Broker remoto MQTT ("test.mosquitto.org")
+char msg[MSG_BUFFER_SIZE];                          // Búffer de envío de datos por MQTT
+char ctrl_msg[] = "C";                              // Variable de control para MQTT
+
+esp_adc_cal_characteristics_t adc_chars;            // Variable para almacenar las carcaterísticas del ADC
+float Avg[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};         // Array de valores medios de lectura de sensores
 
 // ***** DEFINICIÓN DE FUNCIONES ***** //
 
@@ -105,7 +102,6 @@ float Avg[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};     // Array de valores medios de le
 //// Envío de datos por MQTT ////
 /////////////////////////////////
 void Send_MQTT(){
-
   // Todas las medidas se concatenan en un string, separándolas con una barra, y se encapsulan en un array de tipo char ( msg[MSG_BUFFER_SIZE] )
   snprintf (msg, MSG_BUFFER_SIZE, "%lu/%.2f/%.2f/%.2f/%.2f/%.2f/%.2f/%.2f/%.2f/%.2f/%d/%d", timestamp, Avg[0], Avg[1], Avg[2], Avg[3], Avg[4], Avg[5], Avg[6], Avg[7], Avg[8], level_sup, level_inf);
   // Se publica "msg" bajo el topic "aquacol"
@@ -116,13 +112,13 @@ void Send_MQTT(){
 //// Lectura de archivo de SD (Configuración WIFI) ////
 ///////////////////////////////////////////////////////
 void readFile(fs::FS &fs, const char * path){
-    
   Serial.printf("Reading file: %s\n", path);
   File file = fs.open(path);
   if(!file){
     Serial.println("Failed to open file for reading");
     return;
   }
+  // Lectura del SSID y contraseña del WiFi del archivo de texto alojado en la SD
   while(file.available()){
     caracter = (char)file.read();
     if(caracter == '/'){ 
@@ -146,7 +142,6 @@ void readFile(fs::FS &fs, const char * path){
 //// Escritura de datos en archivo de SD ////
 /////////////////////////////////////////////
 void writeFile(fs::FS &fs, const char * path, String message){
-
   Serial.printf("Escribiendo en archivo: %s\n", path);
   File file = fs.open(path, FILE_WRITE);                  // Abrir el archivo en modo escritura
   if(!file){                                              // Error abriendo archivo. Salir de la función
@@ -165,7 +160,6 @@ void writeFile(fs::FS &fs, const char * path, String message){
 //// Añadir datos en archivo de SD ////
 ///////////////////////////////////////
 void appendFile(fs::FS &fs, const char * path, String message){
-
   Serial.printf("Appending to file: %s\n", path);
   File file = fs.open(path, FILE_APPEND);                     // Abrir el archivo en modo añadir datos
   if(!file){                                                  // Error abriendo archivo. Salir de la función
@@ -206,8 +200,7 @@ float Get_pH_value(){
     pH_raw += buf[i];                         
   }                
   pH_raw = pH_raw / 6;
-  pH_voltage = esp_adc_cal_raw_to_voltage(pH_raw, &adc_chars)/1000.0;       // Obtener la tensión en mV con el ADC calibrado
-  //pH_voltage = pH_raw*3.3/4095;                                          
+  pH_voltage = esp_adc_cal_raw_to_voltage(pH_raw, &adc_chars)/1000.0;       // Obtener la tensión en mV con el ADC calibrado                                          
   pH_value = 3.5*pH_voltage + offset_ph;                                    // Convertir a pH
   return pH_value;                                                          // Devuelve el valor medido de pH
 }
@@ -240,7 +233,6 @@ float Get_o2_value(){
     V_saturation = (float)((Temp1 - CAL2_T) * (CAL1_V - CAL2_V) / (CAL1_T - CAL2_T) + CAL2_V);
   }
 
-  //float o2_voltage = (float)(analogRead(o2_pin)*VREF/RESOL);                      // Lectura voltaje salida del ADC (mV)
   float o2_raw = analogRead(o2_pin);
   float o2_voltage = esp_adc_cal_raw_to_voltage(o2_raw, &adc_chars);              // Obtener la tensión en mV que ofrece el ADC calibrado
   float o2_value = (float)(o2_voltage * (DO_Table[(int)Temp1]) / V_saturation);   // Cálculo del oxígeno disuelto
@@ -262,6 +254,7 @@ void Get_Sensors(){
   if(aux >= -20.0 && aux <= 60.0) {Ta2 = aux;}
   aux = dht_2.readHumidity();
   if(aux >= 0 && aux <= 100) {Ha2 = aux;}
+
   DS18B20.requestTemperatures();
   aux = DS18B20.getTempCByIndex(0);
   if(aux != -127.0) {Temp1 = aux;}
@@ -274,7 +267,7 @@ void Get_Sensors(){
   level_sup = digitalRead(float_sup_pin);   // Lectura del sensor float switch superior
   level_inf = digitalRead(float_inf_pin);   // Lectura del sensor float switch inferior
   
-  Avg[0] += Temp1;
+  Avg[0] += Temp1;                          // Suma de medidas en array de valores medios
   Avg[1] += Temp2;
   Avg[2] += pH;
   Avg[3] += o2;
@@ -283,32 +276,15 @@ void Get_Sensors(){
   Avg[6] += Ha1;
   Avg[7] += Ta2;
   Avg[8] += Ha2;
-  
-  /*
-  // Simulación de medidas
-  Temp1 = random(10,30);
-  Temp2 = random(10,30);
-  pH = random(1,14);
-  o2 = random(5,20);
-  ecc = random(20,300);
-  Ta1 = random(10,30);
-  Ha1 = random(0,100);
-  Ta2 = random(10,30);
-  Ha2 = random(0,100);
-  level_sup = 1;
-  level_inf = 1;
-  */ 
 }
 ////////////////////////////////////////////////////////
 //// Calcula el valor medio de las ultimas lecturas ////
 ////////////////////////////////////////////////////////
 void Get_Average(){
-
   DateTime time = rtc.now();              // Obtiene el instante actual en formate DateTime
   timestamp = time.unixtime();            // Convierte el dato anterior a tiempo epoch (segundos transcurridos desde el 01/01/1970)
-  Serial.println(timestamp);
 
-  for(int i = 0; i < 9; i++){
+  for(int i = 0; i < 9; i++){             // Calcular valores medios de las últimas lecturas (cont2)
     Avg[i] = Avg[i] / ((float)cont2);
     Serial.print(Avg[i]);
     Serial.print(" ");
@@ -329,7 +305,7 @@ void Show_LCD(){
     lcd.setCursor(10,3); lcd.print("T2:"); lcd.print(Temp2, 2); lcd.print("C");
     flag_LCD = 1;
   }
-  else{                                   // Imprimir medidas ambientales (LCD)
+  else{                                       // Imprimir medidas ambientales (LCD)
     lcd.setCursor(12,0); lcd.print("AMBIENTE");
     lcd.setCursor(0,2); lcd.print("Ta1:"); lcd.print(Ta1, 2); lcd.print("C");
     lcd.setCursor(11,2); lcd.print("H1:"); lcd.print(Ha1, 2); lcd.print("%");
@@ -343,7 +319,7 @@ void Show_LCD(){
 ///////////////////////////////////////////////////////////
 void Write_SD(){
   String data_str = "";                           // Genera string vacio
-  data_str += String(timestamp) + ";";           // Concatena todas las medidas
+  data_str += String(timestamp) + ";";            // Concatena todas las medidas
   data_str += String(Avg[0]) + ";";               
   data_str += String(Avg[1]) + ";";
   data_str += String(Avg[2]) + ";";
@@ -380,7 +356,6 @@ void Level_Control(){
 //// Automatismo para el control de pH ////
 ///////////////////////////////////////////
 void Ph_Control(){
-        
   if(millis() - prev_time8 > T_1hour){              // Si ha pasado una hora
     prev_time8 = millis();                          // Se guarda el instante actual
 
@@ -404,7 +379,6 @@ void setup_devices(){
   DS18B20.begin();                                  // Inicializa sensores de temperatura DS18B20    
   EEPROM.begin(32);                                 // Inicializa memoria EEPROM   
   rtc.begin();                                      // Inicializa el reloj RTC
-  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));   // Ajustar fecha y hora del RTC
   ec.begin();                                       // Inicializa sensor EC     
   dht_1.begin();                                    // Inicializa sensor DHT22 número 1 
   dht_2.begin();                                    // Inicializa sensor DHT22 número 2
@@ -429,7 +403,7 @@ void setup_wifi(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Configurando WIFI...");
   delay(2000);
-  if(a == 0){
+  if(a == 0){                                               // Si aún no se han obtenido los credenciales del WiFi:
     readFile(SD, "/conf_wifi.txt");                         // Leer archivo de configuración del wifi para obtener nombre y clave
     a = 1;
   }
@@ -458,7 +432,7 @@ void setup_wifi(){
     Serial.println("Dirección IP: ");
     Serial.println(WiFi.localIP());                         // Mostrar dirección IP asignada al ESP32
   }
-  else{                                                     // Si no se obtiene nombre y clave del wifi:
+  else{                                                             // Si no se obtiene nombre y clave del wifi:
     lcd.setCursor(0,1); lcd.print(">>> Config error");
     lcd.setCursor(0,2); lcd.print(">>> WIFI ERROR");
     delay(2000);
@@ -473,8 +447,9 @@ void setup_sd(){
   lcd.clear();
   lcd.setCursor(0,0); lcd.print("Config SD...");
   delay(2000);
-  if(SD.begin(2)){                                                         // Una vez inicializada, incluir nombres de sensores en CSV
-    if(!SD.exists("/data_sensors.csv")){
+  if(SD.begin(2)){     
+    // Si no existe el archivo "data_sensors.csv" en la SD, se crea y se añade la cabecera (nombres de parámetros)                                                    
+    if(!SD.exists("/data_sensors.csv")){        
       String header = "TimeStamp; Temp1; Temp2; pH; Oxigeno; EC; Ta1; Ha1; Ta2; Ha2; Level_Sup; Level_Inf";
       writeFile(SD, "/data_sensors.csv", header);
     }
@@ -522,7 +497,6 @@ void setup_mqtt(){
 //// Iniciar instantes de tiempos anteriores ////
 /////////////////////////////////////////////////
 void init_times(){
-
   prev_time1 = millis();    // Todas la variables de tiempo anterior se inicializan con el tiempo actual    
   prev_time2 = millis();
   prev_time3 = millis();
@@ -549,7 +523,6 @@ void setup(){
 //// Bucle infinito ////
 ////////////////////////
 void loop(){
-
   // Adquisición de datos de sensores
   if(millis() - prev_time1 > T_adq){
     prev_time1 = millis();
@@ -565,15 +538,14 @@ void loop(){
     prev_time3 = millis();
     Get_Average();
     Write_SD();
-
-    Serial.println(WiFi.status());
+    // Comprobar conexión WiFi y reconectar
     if(WiFi.status() != WL_CONNECTED){
       setup_wifi();
     }
-    setup_mqtt();
+    setup_mqtt();                         // Reconectar MQTT
     Send_MQTT();                          // Envío de datos por MQTT
  
-    for(int i=0; i<9; i++){               // Poner a cero el array de valores medios
+    for(int i=0; i<9; i++){               // Resetear array de valores medios
       Avg[i] = 0;
     }
   }
